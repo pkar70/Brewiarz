@@ -1,0 +1,4 @@
+2023.06.01
+* http » https
+* ustawianie user agent
+* CacheSave na System.IO z StorageFile

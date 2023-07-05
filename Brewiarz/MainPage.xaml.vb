@@ -146,7 +146,6 @@ Public NotInheritable Class MainPage
                 'uiTitle.Foreground = oBiale
                 Return "<body bgcolor='#000000' style='color:#eeeeee'>"
         End Select
-
         Return "<body>"
     End Function
 
@@ -166,20 +165,33 @@ Public NotInheritable Class MainPage
     End Function
 
     Private Async Function CacheSave(sFileName As String, sContent As String) As Task
-        Dim oFile As Windows.Storage.StorageFile
+
+        ' 2023.06.01 konwersja na System.IO
+
+        Dim sFold As String = Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path
+        Dim sFile As String = IO.Path.Combine(sFold, sFileName)
 
         ' najpierw kasujemy, bo inaczej CreateDate jest z poprzedniego miesiaca
-        Try
-            Await Windows.Storage.ApplicationData.Current.LocalCacheFolder.DeleteAsync(sFileName)
-        Catch ex As Exception
-            ' wszak moze nie byc
-        End Try
+        IO.File.Delete(sFile)   ' bez exception jeśli nie ma pliku
 
-        oFile = Await Windows.Storage.ApplicationData.Current.LocalCacheFolder.CreateFileAsync(
-                sFileName, Windows.Storage.CreationCollisionOption.ReplaceExisting)
-        Await Windows.Storage.FileIO.WriteTextAsync(oFile, sContent)
+        IO.File.WriteAllText(sFile, sContent)
+
+        'Dim oFile As Windows.Storage.StorageFile
+
+        '' najpierw kasujemy, bo inaczej CreateDate jest z poprzedniego miesiaca
+        'Try
+        '    Await Windows.Storage.ApplicationData.Current.LocalCacheFolder.DeleteAsync(sFileName)
+        'Catch ex As Exception
+        '    ' wszak moze nie byc
+        'End Try
+
+        'oFile = Await Windows.Storage.ApplicationData.Current.LocalCacheFolder.CreateFileAsync(
+        '        sFileName, Windows.Storage.CreationCollisionOption.ReplaceExisting)
+        'Await Windows.Storage.FileIO.WriteTextAsync(oFile, sContent)
 
     End Function
+
+    Private Const msDefaultHttpAgent As String = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4321.0 Safari/537.36 Edg/88.0.702.0"
 
     Private Async Function DownloadWebPage(sLink As String, sLinkFallback As String) As Task(Of String)
         Dim sTmp As String = ""
@@ -188,6 +200,9 @@ Public NotInheritable Class MainPage
         'If sTmp <> "" Then Return sTmp
 
         Dim oHttp As New HttpClient()
+        ' 2023.06.01 ustawianie agenta
+        oHttp?.DefaultRequestHeaders.UserAgent.TryParseAdd(msDefaultHttpAgent)
+
         Dim oStream As Stream = Nothing ' musi byc poprzez stream, bo inaczej psuje politki
 
         Dim bError As Boolean = False
@@ -339,13 +354,15 @@ Public NotInheritable Class MainPage
 
             Dim sLinkBase As String
 
-            sLinkBase = "http://brewiarz.pl/" & Date2Link()
+            ' 2023.06.01 http » https
+            sLinkBase = "https://brewiarz.pl/" & Date2Link()
             If sModl = "index" Then
                 sTmp = Await DownloadWebPage(sLinkBase & "p/index.php3", sLinkBase & "/index.php3")
             Else
                 sTmp = Await DownloadWebPage(
                      sLinkBase & "/" & sModl & ".php3?off=1", sLinkBase & "p/" & sModl & ".php3?off=1")
             End If
+            If sTmp = "" Then Return ""
 
             Await CacheSave(sFilename, sTmp)
         End If
